@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LLMOps Evaluation &amp; Observability Harness</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', 'Noto Sans Arabic', sans-serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 999px; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300 font-bold text-xs">
+          OPS
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold tracking-tight text-white">
+            AI Agent Evaluation &amp; Observability <span class="text-emerald-400">· LLMOps Harness</span>
+          </h1>
+          <p class="text-xs text-slate-400">
+            Bilingual AR/EN Suite · Faithfulness · Prompt-Injection Red-Teaming · PII Zero-Leak · Regression Gates
+          </p>
+        </div>
+      </div>
+      <div id="healthBadges" class="flex flex-wrap items-center gap-2 text-xs">
+        <span class="px-2.5 py-1 rounded-full bg-slate-800 text-slate-300">Loading...</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl w-full mx-auto px-4 py-5 flex-1 space-y-5">
+    <!-- Tabs & Quick Actions -->
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+      <div class="flex flex-wrap gap-2">
+        <button data-tab="benchmark" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-600 text-white">
+          Eval &amp; Red-Team Runner
+        </button>
+        <button data-tab="cache" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-900 text-slate-300 border border-slate-800 hover:bg-slate-800">
+          Cache &amp; Cost Lab
+        </button>
+        <button data-tab="traces" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-900 text-slate-300 border border-slate-800 hover:bg-slate-800">
+          History, Compare &amp; Traces
+        </button>
+      </div>
+      <div class="flex items-center gap-2">
+        <input id="apiKey" type="password" autocomplete="off" placeholder="API key (if enabled)" aria-label="API key"
+          class="w-44 rounded-lg bg-slate-950 border border-slate-700 px-2.5 py-1.5 text-xs text-white focus:border-emerald-500 focus:outline-none" />
+        <a href="/docs" target="_blank" rel="noopener" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-emerald-400 border border-slate-700">Swagger /docs</a>
+      </div>
+    </div>
+    <div id="errorBanner" role="alert" class="hidden rounded-xl border border-red-800/60 bg-red-950/60 px-4 py-2.5 text-xs text-red-200"></div>
+
+    <!-- TAB 1: Benchmark Runner -->
+    <section id="tab-benchmark" class="tab-panel space-y-5">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div class="space-y-1">
+            <h2 class="text-sm font-semibold text-white">Run Automated Bilingual Agent Evaluation Suite</h2>
+            <p class="text-xs text-slate-400">Runs asynchronously via <code>/api/v1/eval/jobs</code> with live case progress. Click any result row to inspect full agent output.</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <select id="targetMode" aria-label="Target mode" class="rounded-xl bg-slate-950 border border-slate-700 px-2.5 py-2 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none">
+              <option value="auto">Target: auto</option>
+              <option value="standalone">Target: built-in self-test</option>
+              <option value="live">Target: live agent</option>
+            </select>
+            <select id="concurrencySelect" aria-label="Concurrency" class="rounded-xl bg-slate-950 border border-slate-700 px-2.5 py-2 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none">
+              <option value="">Concurrency: default</option>
+              <option value="1">Concurrency: 1</option>
+              <option value="4">Concurrency: 4</option>
+              <option value="8">Concurrency: 8</option>
+              <option value="16">Concurrency: 16</option>
+            </select>
+            <button onclick="runEval(false)" id="coldRunBtn" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 text-xs font-semibold transition">
+              Cold Run (No Cache)
+            </button>
+            <button onclick="runEval(true)" id="cachedRunBtn" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition">
+              Run Suite (Cache ON)
+            </button>
+          </div>
+        </div>
+
+        <!-- Category Filters -->
+        <div class="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-800/80 text-xs">
+          <span class="text-slate-400">Categories:</span>
+          <button type="button" onclick="toggleAllCategories(true)" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200">All</button>
+          <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 cursor-pointer">
+            <input type="checkbox" class="cat-filter accent-emerald-500" value="qa_en" checked /> <span>qa_en</span>
+          </label>
+          <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 cursor-pointer">
+            <input type="checkbox" class="cat-filter accent-emerald-500" value="qa_ar" checked /> <span>qa_ar</span>
+          </label>
+          <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 cursor-pointer">
+            <input type="checkbox" class="cat-filter accent-emerald-500" value="pii_privacy" checked /> <span>pii_privacy</span>
+          </label>
+          <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 cursor-pointer">
+            <input type="checkbox" class="cat-filter accent-emerald-500" value="prompt_injection" checked /> <span>prompt_injection</span>
+          </label>
+          <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 cursor-pointer">
+            <input type="checkbox" class="cat-filter accent-emerald-500" value="structured_workflow" checked /> <span>structured_workflow</span>
+          </label>
+        </div>
+      </div>
+
+      <div id="evalOutput" class="space-y-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-sm text-slate-400">
+          Click a benchmark button above to evaluate Arabic &amp; English test cases across Grounded Q&amp;A, Enterprise PII Zero-Leak Safety, Prompt-Injection Red-Teaming, and Structured Agent Workflows.
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: Redis Cache & Cost Lab -->
+    <section id="tab-cache" class="tab-panel hidden space-y-4">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+          <h2 class="text-sm font-semibold text-white">Live Query Cache Latency &amp; Cost Probe</h2>
+          <p class="text-xs text-slate-400">Send the same query twice: Call #1 is a Cache MISS (pays full latency &amp; tokens); Call #2 is a Cache HIT (near-zero latency, $0.00 token cost).</p>
+          <input id="cacheQuery" type="text" value="What is the End-of-Service Award under Saudi Labor Law Article 84?"
+            class="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none" />
+          <div class="flex flex-wrap gap-2">
+            <button onclick="probeCache(true)" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold">Send Cached Query</button>
+            <button onclick="probeCache(false)" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium">Bypass Cache</button>
+            <button onclick="flushCache()" class="px-4 py-2 rounded-xl bg-red-950/70 hover:bg-red-900/70 text-red-200 border border-red-700/50 text-xs font-medium ml-auto">Flush Cache</button>
+          </div>
+          <div id="cacheProbeResult" class="space-y-2"></div>
+        </div>
+        <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+          <h2 class="text-sm font-semibold text-white">Live Cache Telemetry</h2>
+          <div id="cacheStatsBox" class="grid grid-cols-2 gap-2.5 text-xs"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: History, Regression Compare & Traces -->
+    <section id="tab-traces" class="tab-panel hidden space-y-5">
+      <!-- Regression Diff -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-sm font-semibold text-white">Regression Comparison (Baseline vs Candidate)</h2>
+            <p class="text-xs text-slate-400">Diff any two stored runs to catch quality drops or newly failing cases before merging.</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2 text-xs">
+            <select id="compareBase" aria-label="Base run" class="rounded-lg bg-slate-950 border border-slate-700 px-2.5 py-1.5 text-slate-200"></select>
+            <span class="text-slate-500">→</span>
+            <select id="compareHead" aria-label="Head run" class="rounded-lg bg-slate-950 border border-slate-700 px-2.5 py-1.5 text-slate-200"></select>
+            <input id="compareTolerance" type="number" step="0.01" min="0" max="1" value="0.02" aria-label="Tolerance"
+              class="w-20 rounded-lg bg-slate-950 border border-slate-700 px-2 py-1.5 text-slate-200" title="Absolute metric tolerance" />
+            <button onclick="runCompare()" class="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold">Compare Runs</button>
+          </div>
+        </div>
+        <div id="compareResult"></div>
+      </div>
+
+      <!-- Run History -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+          <h2 class="text-sm font-semibold text-white">CI/CD Regression Run History</h2>
+          <button onclick="loadTracesAndHistory()" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200">Refresh</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-950 text-slate-400 uppercase text-[11px]">
+              <tr>
+                <th class="px-3 py-2.5">Run ID</th>
+                <th class="px-3 py-2.5">Timestamp (UTC)</th>
+                <th class="px-3 py-2.5">Pass Rate</th>
+                <th class="px-3 py-2.5">Faithfulness</th>
+                <th class="px-3 py-2.5">Injection Def</th>
+                <th class="px-3 py-2.5">Cache Hit</th>
+                <th class="px-3 py-2.5">P95 Latency</th>
+                <th class="px-3 py-2.5">CI Gate</th>
+                <th class="px-3 py-2.5">Reports</th>
+                <th class="px-3 py-2.5">Diff</th>
+              </tr>
+            </thead>
+            <tbody id="runsBody" class="divide-y divide-slate-800"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Recent Traces -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
+          <h2 class="text-sm font-semibold text-white">Recent Langfuse-Compatible Agent Traces</h2>
+          <div class="flex items-center gap-2 text-xs">
+            <label for="traceRunFilter" class="text-slate-400">Run:</label>
+            <select id="traceRunFilter" onchange="loadTracesOnly()" class="rounded-lg bg-slate-950 border border-slate-700 px-2 py-1 text-slate-200">
+              <option value="">All runs</option>
+            </select>
+          </div>
+        </div>
+        <div class="overflow-x-auto max-h-96 overflow-y-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-950 text-slate-400 uppercase text-[11px] sticky top-0">
+              <tr>
+                <th class="px-3 py-2">Trace ID</th>
+                <th class="px-3 py-2">Case</th>
+                <th class="px-3 py-2">Category</th>
+                <th class="px-3 py-2">Cache</th>
+                <th class="px-3 py-2">Latency</th>
+                <th class="px-3 py-2">Faithfulness</th>
+                <th class="px-3 py-2">PII Safety</th>
+                <th class="px-3 py-2">Tokens</th>
+              </tr>
+            </thead>
+            <tbody id="tracesBody" class="divide-y divide-slate-800"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Case Inspector Modal -->
+  <div id="caseModal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-5 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div>
+          <h3 id="modalTitle" class="text-sm font-bold text-white font-mono"></h3>
+          <p id="modalMeta" class="text-xs text-slate-400 mt-0.5"></p>
+        </div>
+        <button onclick="closeCaseModal()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200">Close</button>
+      </div>
+      <div id="modalBody" class="space-y-3 text-xs"></div>
+    </div>
+  </div>
+
+  <script>
+    const KEY_STORE = 'llmops_api_key';
+    const apiKeyInput = document.getElementById('apiKey');
+    apiKeyInput.value = sessionStorage.getItem(KEY_STORE) || '';
+    apiKeyInput.addEventListener('change', () => {
+      sessionStorage.setItem(KEY_STORE, apiKeyInput.value.trim());
+      refreshHealth().catch(() => {});
+    });
+
+    let lastRunResults = [];
+    let currentFilterMode = 'all';
+    let currentSearch = '';
+
+    function showError(msg) {
+      const b = document.getElementById('errorBanner');
+      b.textContent = msg;
+      b.classList.remove('hidden');
+    }
+    function clearError() { document.getElementById('errorBanner').classList.add('hidden'); }
+
+    async function api(path, opts = {}) {
+      const headers = Object.assign({}, opts.headers || {});
+      const key = sessionStorage.getItem(KEY_STORE);
+      if (key) headers['X-API-Key'] = key;
+      const res = await fetch(path, Object.assign({}, opts, { headers }));
+      if (!res.ok) {
+        let detail = res.statusText;
+        try {
+          const j = await res.json();
+          detail = typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail);
+        } catch (_) { /* non-JSON error body */ }
+        const msg = res.status === 401 ? 'Unauthorized - enter a valid API key (top right).' : `Error ${res.status}: ${detail}`;
+        showError(msg);
+        throw new Error(msg);
+      }
+      clearError();
+      return res;
+    }
+
+    async function downloadArtifact(runId, kind) {
+      const extMap = { markdown: ['markdown', `${runId}_report.md`], junit: ['junit', `${runId}_junit.xml`], csv: ['csv', `${runId}_results.csv`], json: ['json', `${runId}_report.json`] };
+      const [endpoint, filename] = extMap[kind];
+      const res = await api(`/api/v1/eval/runs/${encodeURIComponent(runId)}/${endpoint}`);
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.tab;
+        document.querySelectorAll('.tab-btn').forEach(b => {
+          const active = b.dataset.tab === target;
+          b.className = `tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm transition ${active ? 'font-semibold bg-emerald-600 text-white' : 'font-medium bg-slate-900 text-slate-300 border border-slate-800 hover:bg-slate-800'}`;
+        });
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+        document.getElementById(`tab-${target}`).classList.remove('hidden');
+        if (target === 'cache') refreshCacheStats();
+        if (target === 'traces') loadTracesAndHistory();
+      });
+    });
+
+    function toggleAllCategories(state) {
+      document.querySelectorAll('.cat-filter').forEach(cb => { cb.checked = state; });
+    }
+
+    function selectedCategories() {
+      const boxes = Array.from(document.querySelectorAll('.cat-filter'));
+      const checked = boxes.filter(b => b.checked).map(b => b.value);
+      return checked.length === boxes.length ? null : checked;
+    }
+
+    async function refreshHealth() {
+      const res = await api('/health');
+      const h = await res.json();
+      document.getElementById('healthBadges').innerHTML = `
+        <span class="px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-mono">v${esc(h.version)}</span>
+        <span class="px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-emerald-300">${h.dataset_cases_loaded} Bilingual Cases</span>
+        <span class="px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-indigo-300">Cache: ${esc(h.cache_backend)}</span>
+        <span class="px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300">Langfuse: ${h.langfuse_enabled ? 'Connected' : 'Local SQLite'}</span>
+        <span class="px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 ${h.auth_enabled ? 'text-amber-300' : 'text-slate-400'}">Auth: ${h.auth_enabled ? 'API Key' : 'Open'}</span>
+      `;
+    }
+
+    function setRunButtonsDisabled(disabled) {
+      document.getElementById('coldRunBtn').disabled = disabled;
+      document.getElementById('cachedRunBtn').disabled = disabled;
+    }
+
+    async function runEval(useCache) {
+      const mode = document.getElementById('targetMode').value;
+      const cats = selectedCategories();
+      if (cats !== null && cats.length === 0) {
+        showError('Select at least one category before running.');
+        return;
+      }
+      const concVal = document.getElementById('concurrencySelect').value;
+      const payload = { use_cache: useCache, target_mode: mode };
+      if (cats) payload.categories = cats;
+      if (concVal) payload.concurrency = Number(concVal);
+
+      const out = document.getElementById('evalOutput');
+      setRunButtonsDisabled(true);
+      out.innerHTML = `<div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-2 text-center text-sm text-emerald-400"><div class="animate-pulse">Submitting evaluation job (Cache: ${useCache ? 'ON' : 'OFF'}, Target: ${esc(mode)})...</div><div id="jobProgress" class="text-xs text-slate-400"></div></div>`;
+
+      try {
+        const startRes = await api('/api/v1/eval/jobs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        let job = await startRes.json();
+        while (job.status === 'queued' || job.status === 'running') {
+          const pct = job.total_cases ? Math.round((job.completed_cases / job.total_cases) * 100) : 0;
+          const progEl = document.getElementById('jobProgress');
+          if (progEl) {
+            progEl.innerHTML = `<div class="max-w-md mx-auto space-y-1.5"><div class="flex justify-between font-mono"><span>${esc(job.job_id)}</span><span>${job.completed_cases} / ${job.total_cases} cases (${pct}%)</span></div><div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden"><div class="bg-emerald-500 h-2 transition-all" style="width:${pct}%"></div></div></div>`;
+          }
+          await new Promise(r => setTimeout(r, 250));
+          const pollRes = await api(`/api/v1/eval/jobs/${encodeURIComponent(job.job_id)}`);
+          job = await pollRes.json();
+        }
+        if (job.status === 'failed' || !job.summary) {
+          throw new Error(job.error || 'Evaluation job failed.');
+        }
+        renderEvalSummary(job.summary);
+        refreshHealth();
+      } catch (e) {
+        out.innerHTML = `<div class="bg-slate-900 border border-red-900/60 rounded-2xl p-6 text-center text-sm text-red-300">The run did not complete - see the error banner above.</div>`;
+      } finally {
+        setRunButtonsDisabled(false);
+      }
+    }
+
+    function renderCaseRows() {
+      const tbody = document.getElementById('caseTableBody');
+      if (!tbody) return;
+      const filtered = lastRunResults.filter(r => {
+        if (currentFilterMode === 'failed' && r.passed) return false;
+        if (currentFilterMode === 'security' && r.pii_safe && r.injection_safe) return false;
+        if (currentSearch) {
+          const q = currentSearch.toLowerCase();
+          if (!r.case_id.toLowerCase().includes(q) && !r.query.toLowerCase().includes(q) && !r.notes.toLowerCase().includes(q)) return false;
+        }
+        return true;
+      });
+      tbody.innerHTML = filtered.length
+        ? filtered.map(r => {
+            const idx = lastRunResults.indexOf(r);
+            return `
+              <tr onclick="openCaseModal(${idx})" class="hover:bg-slate-800/50 cursor-pointer transition">
+                <td class="px-3 py-2 font-mono text-slate-300">${esc(r.case_id)}</td>
+                <td class="px-3 py-2 font-mono text-indigo-300">${esc(r.category)}</td>
+                <td class="px-3 py-2 uppercase text-slate-400">${esc(r.language)}</td>
+                <td class="px-3 py-2 max-w-xs truncate text-slate-200" dir="auto" title="${esc(r.query)}">${esc(r.query)}</td>
+                <td class="px-3 py-2 font-mono">${r.faithfulness_score.toFixed(2)}</td>
+                <td class="px-3 py-2 font-mono">${r.relevancy_score.toFixed(2)}</td>
+                <td class="px-3 py-2">${r.cache_hit ? '<span class="text-emerald-400 font-semibold">HIT</span>' : '<span class="text-slate-400">MISS</span>'}</td>
+                <td class="px-3 py-2 font-mono">${r.latency_ms} ms</td>
+                <td class="px-3 py-2" title="${esc(r.notes)}">${r.passed ? '<span class="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 text-[11px]">PASS</span>' : '<span class="px-2 py-0.5 rounded-full bg-red-950 text-red-300 text-[11px]">FAIL</span>'}</td>
+              </tr>
+            `;
+          }).join('')
+        : `<tr><td colspan="9" class="px-3 py-6 text-center text-slate-500">No cases match the current filter.</td></tr>`;
+    }
+
+    function setCaseFilter(mode) {
+      currentFilterMode = mode;
+      document.querySelectorAll('.case-filter-btn').forEach(b => {
+        const active = b.dataset.filter === mode;
+        b.className = `case-filter-btn px-2.5 py-1 rounded-lg text-xs ${active ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`;
+      });
+      renderCaseRows();
+    }
+
+    function openCaseModal(idx) {
+      const r = lastRunResults[idx];
+      if (!r) return;
+      document.getElementById('modalTitle').textContent = `${r.case_id} · ${r.category} (${r.language.toUpperCase()})`;
+      document.getElementById('modalMeta').textContent = `Source: ${r.target_source} · Status: ${r.passed ? 'PASS' : 'FAIL'} · Latency: ${r.latency_ms} ms · Tokens: ${r.prompt_tokens + r.completion_tokens} ($${r.estimated_cost_usd.toFixed(6)})`;
+      document.getElementById('modalBody').innerHTML = `
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800"><div class="text-slate-400">Faithfulness</div><div class="text-sm font-bold mt-0.5">${r.faithfulness_score.toFixed(3)}</div></div>
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800"><div class="text-slate-400">Relevancy</div><div class="text-sm font-bold mt-0.5">${r.relevancy_score.toFixed(3)}</div></div>
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800"><div class="text-slate-400">Injection Safe</div><div class="text-sm font-bold mt-0.5 ${r.injection_safe ? 'text-emerald-400' : 'text-red-400'}">${r.injection_safe ? 'SAFE' : 'VULNERABLE'}</div></div>
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800"><div class="text-slate-400">PII Zero-Leak</div><div class="text-sm font-bold mt-0.5 ${r.pii_safe ? 'text-emerald-400' : 'text-red-400'}">${r.pii_safe ? 'SAFE' : 'LEAKED'}</div></div>
+        </div>
+        <div>
+          <div class="text-slate-400 mb-1 font-semibold">Input Query / Payload</div>
+          <pre dir="auto" class="p-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 whitespace-pre-wrap break-words">${esc(r.query)}</pre>
+        </div>
+        <div>
+          <div class="text-slate-400 mb-1 font-semibold">Agent Response ${r.actual_status ? `(Status: ${esc(r.actual_status)})` : ''}</div>
+          <pre dir="auto" class="p-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 whitespace-pre-wrap break-words">${esc(r.actual_output || '(empty)')}</pre>
+        </div>
+        <div>
+          <div class="text-slate-400 mb-1 font-semibold">Diagnostic Notes</div>
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 ${r.passed ? 'text-emerald-300' : 'text-amber-300'}">${esc(r.error || r.notes)}</div>
+        </div>
+      `;
+      document.getElementById('caseModal').classList.remove('hidden');
+    }
+    function closeCaseModal() { document.getElementById('caseModal').classList.add('hidden'); }
+    document.getElementById('caseModal').addEventListener('click', (e) => { if (e.target.id === 'caseModal') closeCaseModal(); });
+
+    function renderEvalSummary(d) {
+      lastRunResults = d.results || [];
+      currentFilterMode = 'all';
+      currentSearch = '';
+
+      const gateBadge = d.quality_gate_passed
+        ? `<span class="px-3 py-1 rounded-full bg-emerald-950 border border-emerald-500/50 text-emerald-300 text-xs font-bold">CI QUALITY GATE: PASS</span>`
+        : `<span class="px-3 py-1 rounded-full bg-red-950 border border-red-500/50 text-red-300 text-xs font-bold">CI QUALITY GATE: FAIL</span>`;
+
+      const catRows = d.category_breakdown.map(c => `
+        <tr class="hover:bg-slate-800/40">
+          <td class="px-3 py-2 font-mono text-emerald-300">${esc(c.category)}</td>
+          <td class="px-3 py-2 text-slate-200">${c.passed_cases} / ${c.total_cases}</td>
+          <td class="px-3 py-2 font-semibold text-white">${(c.pass_rate * 100).toFixed(1)}%</td>
+          <td class="px-3 py-2 font-mono text-slate-200">${c.avg_faithfulness.toFixed(3)}</td>
+          <td class="px-3 py-2 font-mono text-slate-300">${c.avg_latency_ms} ms</td>
+        </tr>
+      `).join('');
+
+      const selfTest = d.effective_target === 'standalone'
+        ? `<div class="bg-amber-950/50 border border-amber-700/50 rounded-2xl p-3 text-xs text-amber-200"><b>Self-test mode.</b> Answers come from the built-in reference agent, so these scores validate the harness itself - not your agent. Set <code>TARGET_QA_ENDPOINT_URL</code> / <code>TARGET_WORKFLOW_ENDPOINT_URL</code> to evaluate a real agent.</div>`
+        : '';
+      const reasons = d.quality_gate_reasons.length
+        ? `<div class="bg-red-950/50 border border-red-800/60 rounded-2xl p-3 text-xs text-red-200"><b>Quality gate failures</b><ul class="list-disc ml-5 mt-1">${d.quality_gate_reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>`
+        : '';
+
+      document.getElementById('evalOutput').innerHTML = `
+        ${selfTest}${reasons}
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-bold text-white font-mono">${esc(d.run_id)}</span>
+              ${gateBadge}
+            </div>
+            <p class="text-xs text-slate-400 mt-1">Target: ${esc(d.effective_target)} · Cache: ${d.cache_enabled ? esc(d.cache_backend) : 'DISABLED'} · Hit Rate: ${(d.cache_hit_rate * 100).toFixed(1)}% · Tokens: ${d.total_tokens} · Errors: ${d.error_cases} · ${d.duration_seconds}s</p>
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            <button onclick="downloadArtifact('${esc(d.run_id)}','markdown')" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold">Markdown</button>
+            <button onclick="downloadArtifact('${esc(d.run_id)}','junit')" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium">JUnit XML</button>
+            <button onclick="downloadArtifact('${esc(d.run_id)}','csv')" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium">CSV</button>
+            <button onclick="downloadArtifact('${esc(d.run_id)}','json')" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium">JSON</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5"><div class="text-[11px] text-slate-400">Pass Rate</div><div class="text-xl font-bold text-emerald-400 mt-1">${(d.overall_pass_rate * 100).toFixed(1)}%</div></div>
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5"><div class="text-[11px] text-slate-400">Faithfulness</div><div class="text-xl font-bold text-white mt-1">${d.avg_faithfulness.toFixed(3)}</div></div>
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5"><div class="text-[11px] text-slate-400">Relevancy</div><div class="text-xl font-bold text-white mt-1">${d.avg_relevancy.toFixed(3)}</div></div>
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5"><div class="text-[11px] text-slate-400">Injection Defense</div><div class="text-xl font-bold text-emerald-300 mt-1">${(d.injection_defense_rate * 100).toFixed(0)}%</div></div>
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5"><div class="text-[11px] text-slate-400">PII Zero-Leak</div><div class="text-xl font-bold text-emerald-300 mt-1">${(d.pii_safety_rate * 100).toFixed(0)}%</div></div>
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5"><div class="text-[11px] text-slate-400">P95 Latency</div><div class="text-xl font-bold text-indigo-300 mt-1">${d.p95_latency_ms} ms</div></div>
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5"><div class="text-[11px] text-slate-400">Cost / 1k</div><div class="text-xl font-bold text-amber-300 mt-1">$${d.cost_per_1k_queries_usd.toFixed(3)}</div></div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+          <div class="px-4 py-3 border-b border-slate-800 text-xs font-semibold text-white uppercase tracking-wider">Category Breakdown</div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-950 text-slate-400 uppercase text-[11px]">
+                <tr><th class="px-3 py-2">Category</th><th class="px-3 py-2">Passed</th><th class="px-3 py-2">Pass Rate</th><th class="px-3 py-2">Faithfulness</th><th class="px-3 py-2">Avg Latency</th></tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800">${catRows}</tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+          <div class="px-4 py-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
+            <div class="text-xs font-semibold text-white uppercase tracking-wider">Per-Case Results (${d.total_cases} cases · click a row to inspect)</div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button data-filter="all" onclick="setCaseFilter('all')" class="case-filter-btn px-2.5 py-1 rounded-lg text-xs bg-indigo-600 text-white font-semibold">All</button>
+              <button data-filter="failed" onclick="setCaseFilter('failed')" class="case-filter-btn px-2.5 py-1 rounded-lg text-xs bg-slate-800 text-slate-300 hover:bg-slate-700">Failed Only</button>
+              <button data-filter="security" onclick="setCaseFilter('security')" class="case-filter-btn px-2.5 py-1 rounded-lg text-xs bg-slate-800 text-slate-300 hover:bg-slate-700">PII / Injection</button>
+              <input type="text" placeholder="Search case or query..." oninput="currentSearch=this.value;renderCaseRows()"
+                class="rounded-lg bg-slate-950 border border-slate-700 px-2.5 py-1 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none" />
+            </div>
+          </div>
+          <div class="overflow-x-auto max-h-96 overflow-y-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-950 text-slate-400 uppercase text-[11px] sticky top-0">
+                <tr><th class="px-3 py-2">ID</th><th class="px-3 py-2">Category</th><th class="px-3 py-2">Lang</th><th class="px-3 py-2">Query</th><th class="px-3 py-2">Faith.</th><th class="px-3 py-2">Rel.</th><th class="px-3 py-2">Cache</th><th class="px-3 py-2">Latency</th><th class="px-3 py-2">Status</th></tr>
+              </thead>
+              <tbody id="caseTableBody" class="divide-y divide-slate-800"></tbody>
+            </table>
+          </div>
+        </div>
+      `;
+      renderCaseRows();
+    }
+
+    async function refreshCacheStats() {
+      const res = await api('/api/v1/cache/stats');
+      const s = await res.json();
+      document.getElementById('cacheStatsBox').innerHTML = `
+        <div class="p-3 rounded-xl bg-slate-950 border border-slate-800"><div class="text-slate-400">Backend</div><div class="text-sm font-bold text-indigo-300 mt-0.5">${esc(s.backend)}</div></div>
+        <div class="p-3 rounded-xl bg-slate-950 border border-slate-800"><div class="text-slate-400">Hit Rate</div><div class="text-sm font-bold text-emerald-400 mt-0.5">${(s.hit_rate * 100).toFixed(1)}%</div></div>
+        <div class="p-3 rounded-xl bg-slate-950 border border-slate-800"><div class="text-slate-400">Hits / Misses</div><div class="text-sm font-bold text-white mt-0.5">${s.hits} / ${s.misses}</div></div>
+        <div class="p-3 rounded-xl bg-slate-950 border border-slate-800"><div class="text-slate-400">Cached Keys</div><div class="text-sm font-bold text-white mt-0.5">${s.cached_keys}</div></div>
+      `;
+    }
+
+    async function probeCache(useCache) {
+      const query = document.getElementById('cacheQuery').value.trim();
+      if (!query) return;
+      const res = await api('/api/v1/cache/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, use_cache: useCache }),
+      });
+      const r = await res.json();
+      const div = document.getElementById('cacheProbeResult');
+      div.innerHTML = `
+        <div class="p-3 rounded-xl bg-slate-950 border ${r.cache_hit ? 'border-emerald-600/50' : 'border-slate-800'} text-xs flex flex-wrap items-center justify-between gap-2">
+          <span class="font-bold ${r.cache_hit ? 'text-emerald-400' : 'text-amber-300'}">${r.cache_hit ? 'CACHE HIT (0 tokens, $0.00)' : 'CACHE MISS (LLM Executed)'}</span>
+          <span class="font-mono text-slate-300">Latency: ${r.latency_ms} ms · Tokens: ${r.tokens_used}</span>
+        </div>
+      ` + div.innerHTML;
+      refreshCacheStats();
+    }
+
+    async function flushCache() {
+      await api('/api/v1/cache/flush', { method: 'POST' });
+      document.getElementById('cacheProbeResult').innerHTML = `<div class="text-xs text-slate-400">Cache flushed.</div>`;
+      refreshCacheStats();
+    }
+
+    function setComparePick(which, runId) {
+      const el = document.getElementById(which === 'base' ? 'compareBase' : 'compareHead');
+      if (el) el.value = runId;
+    }
+
+    async function runCompare() {
+      const base = document.getElementById('compareBase').value;
+      const head = document.getElementById('compareHead').value;
+      const tol = document.getElementById('compareTolerance').value || '0.02';
+      if (!base || !head) {
+        showError('At least one stored run is needed for comparison.');
+        return;
+      }
+      const res = await api(`/api/v1/eval/compare?base=${encodeURIComponent(base)}&head=${encodeURIComponent(head)}&tolerance=${encodeURIComponent(tol)}`);
+      const c = await res.json();
+      const rows = c.metrics.map(m => {
+        const good = m.higher_is_better ? m.delta >= 0 : m.delta <= 0;
+        const deltaColor = m.regressed ? 'text-red-400 font-bold' : (m.delta === 0 ? 'text-slate-400' : (good ? 'text-emerald-400' : 'text-amber-300'));
+        return `
+          <tr class="hover:bg-slate-800/40">
+            <td class="px-3 py-1.5 font-mono text-slate-200">${esc(m.metric)}</td>
+            <td class="px-3 py-1.5 font-mono text-slate-400">${m.base.toFixed(4)}</td>
+            <td class="px-3 py-1.5 font-mono text-slate-200">${m.head.toFixed(4)}</td>
+            <td class="px-3 py-1.5 font-mono ${deltaColor}">${m.delta >= 0 ? '+' : ''}${m.delta.toFixed(4)} ${m.regressed ? '❌' : ''}</td>
+          </tr>
+        `;
+      }).join('');
+      document.getElementById('compareResult').innerHTML = `
+        <div class="rounded-xl border ${c.regression_detected ? 'border-red-700/60 bg-red-950/30' : 'border-emerald-700/50 bg-emerald-950/20'} p-3 space-y-2 text-xs">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="font-bold ${c.regression_detected ? 'text-red-300' : 'text-emerald-300'}">${c.regression_detected ? 'REGRESSION DETECTED' : 'NO REGRESSION'}</span>
+            <span class="font-mono text-slate-400">${esc(c.base_run_id)} → ${esc(c.head_run_id)} (tol ${c.tolerance})</span>
+          </div>
+          ${c.regressions.length ? `<ul class="list-disc ml-5 text-red-200">${c.regressions.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+          <div class="overflow-x-auto"><table class="w-full text-left"><thead><tr class="text-slate-400 uppercase text-[10px]"><th class="px-3 py-1">Metric</th><th class="px-3 py-1">Base</th><th class="px-3 py-1">Head</th><th class="px-3 py-1">Delta</th></tr></thead><tbody class="divide-y divide-slate-800">${rows}</tbody></table></div>
+        </div>
+      `;
+    }
+
+    async function loadTracesOnly() {
+      const runId = document.getElementById('traceRunFilter').value;
+      const url = runId ? `/api/v1/traces?limit=80&run_id=${encodeURIComponent(runId)}` : '/api/v1/traces?limit=80';
+      const traces = await (await api(url)).json();
+      document.getElementById('tracesBody').innerHTML = traces.length
+        ? traces.map(t => `
+            <tr>
+              <td class="px-3 py-2 font-mono text-slate-400">${esc(t.trace_id)}</td>
+              <td class="px-3 py-2 font-mono text-slate-200">${esc(t.case_id)}</td>
+              <td class="px-3 py-2 font-mono text-indigo-300">${esc(t.category)}</td>
+              <td class="px-3 py-2">${t.cache_hit ? '<span class="text-emerald-400">HIT</span>' : 'MISS'}</td>
+              <td class="px-3 py-2 font-mono">${t.latency_ms} ms</td>
+              <td class="px-3 py-2 font-mono">${t.faithfulness.toFixed(2)}</td>
+              <td class="px-3 py-2">${t.pii_safe ? '<span class="text-emerald-400">SAFE</span>' : '<span class="text-red-400">LEAK</span>'}</td>
+              <td class="px-3 py-2 font-mono">${t.tokens}</td>
+            </tr>
+          `).join('')
+        : `<tr><td colspan="8" class="px-3 py-5 text-center text-slate-500">No traces recorded yet.</td></tr>`;
+    }
+
+    async function loadTracesAndHistory() {
+      const runs = await (await api('/api/v1/eval/runs?limit=20')).json();
+      const opts = runs.map(r => `<option value="${esc(r.run_id)}">${esc(r.run_id)} (${(r.overall_pass_rate * 100).toFixed(0)}%)</option>`).join('');
+      document.getElementById('compareBase').innerHTML = opts || '<option value="">No runs</option>';
+      document.getElementById('compareHead').innerHTML = opts || '<option value="">No runs</option>';
+      if (runs.length >= 2) {
+        document.getElementById('compareBase').value = runs[1].run_id;
+        document.getElementById('compareHead').value = runs[0].run_id;
+      }
+      document.getElementById('traceRunFilter').innerHTML = '<option value="">All runs</option>' + opts;
+
+      document.getElementById('runsBody').innerHTML = runs.length
+        ? runs.map(r => `
+            <tr class="hover:bg-slate-800/40">
+              <td class="px-3 py-2 font-mono text-slate-200">${esc(r.run_id)}</td>
+              <td class="px-3 py-2 font-mono text-slate-400">${esc(r.timestamp.replace('T', ' ').slice(0, 19))}</td>
+              <td class="px-3 py-2 font-semibold text-white">${(r.overall_pass_rate * 100).toFixed(1)}%</td>
+              <td class="px-3 py-2 font-mono">${r.avg_faithfulness.toFixed(3)}</td>
+              <td class="px-3 py-2 font-mono">${(r.injection_defense_rate * 100).toFixed(0)}%</td>
+              <td class="px-3 py-2 font-mono">${(r.cache_hit_rate * 100).toFixed(1)}%</td>
+              <td class="px-3 py-2 font-mono">${r.p95_latency_ms} ms</td>
+              <td class="px-3 py-2">${r.quality_gate_passed ? '<span class="text-emerald-400 font-bold">PASS</span>' : '<span class="text-red-400 font-bold">FAIL</span>'}</td>
+              <td class="px-3 py-2 space-x-1.5">
+                <button onclick="downloadArtifact('${esc(r.run_id)}','markdown')" class="text-indigo-400 hover:underline">MD</button>
+                <button onclick="downloadArtifact('${esc(r.run_id)}','junit')" class="text-indigo-400 hover:underline">JUnit</button>
+                <button onclick="downloadArtifact('${esc(r.run_id)}','csv')" class="text-indigo-400 hover:underline">CSV</button>
+              </td>
+              <td class="px-3 py-2 space-x-1">
+                <button onclick="setComparePick('base','${esc(r.run_id)}')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px]">Base</button>
+                <button onclick="setComparePick('head','${esc(r.run_id)}')" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px]">Head</button>
+              </td>
+            </tr>
+          `).join('')
+        : `<tr><td colspan="10" class="px-3 py-5 text-center text-slate-500">No evaluation runs yet.</td></tr>`;
+
+      await loadTracesOnly();
+    }
+
+    refreshHealth();
+  </script>
+</body>
+</html>

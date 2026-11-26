@@ -1,0 +1,116 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llmops-agent-eval-harness"
+dynamic = ["version"]
+description = "Production-grade LLMOps harness: evaluate, red-team, cache and observe any AI agent (Arabic + English) with a CI/CD quality gate."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "llmops-agent-eval-harness contributors" }]
+keywords = ["llmops", "llm", "evaluation", "rag", "red-teaming", "prompt-injection", "observability", "langfuse", "arabic", "fastapi"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
+dependencies = [
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.32,<1",
+    "pydantic>=2.9,<3",
+    "pydantic-settings>=2.6,<3",
+    "httpx>=0.27,<1",
+    "prometheus-client>=0.21,<1",
+]
+
+[project.optional-dependencies]
+redis = ["redis>=5.2,<9"]
+langfuse = ["langfuse>=2.50,<6"]
+all = ["redis>=5.2,<9", "langfuse>=2.50,<6"]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=5.0",
+    "fakeredis>=2.26",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "pre-commit>=4.0",
+    "pip-audit>=2.7",
+]
+
+[project.urls]
+Documentation = "https://github.com/wardamasood/llmops-agent-eval-harness/tree/main/docs"
+Source = "https://github.com/wardamasood/llmops-agent-eval-harness"
+Issues = "https://github.com/wardamasood/llmops-agent-eval-harness/issues"
+Changelog = "https://github.com/wardamasood/llmops-agent-eval-harness/blob/main/CHANGELOG.md"
+
+[project.scripts]
+llmops-eval = "app.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "app.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["app", "tests", "examples"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "C4", "SIM", "RUF", "ASYNC", "PT"]
+ignore = [
+    "S101",   # assert is fine in tests
+    "RUF001", # Arabic/Unicode strings are intentional
+    "RUF002",
+    "RUF003",
+    "S311",
+    "PT018",  # compound asserts are intentional in tests
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106", "S108", "B011"]
+"examples/**" = ["S104", "S105"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["app", "examples"]
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = ["langfuse.*", "redis.*", "fakeredis.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-ra --strict-markers"
+filterwarnings = [
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated:UserWarning",
+]
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise NotImplementedError"]

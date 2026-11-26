@@ -1,0 +1,87 @@
+name: LLMOps Quality Gate
+
+# Runs the bilingual evaluation suite as a merge gate.
+#  * push / PR  -> self-test gate (built-in reference agent): proves the harness + dataset are healthy.
+#  * manual / nightly -> LIVE gate against YOUR agent (needs the secrets below). This is the one
+#    that tells you whether your agent regressed.
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      live:
+        description: "Evaluate the live agent (needs TARGET_* secrets)"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "0 3 * * *"   # nightly; only runs the live job when LIVE_EVAL_ENABLED=true
+
+permissions:
+  contents: read
+
+jobs:
+  self-test-gate:
+    name: Self-test gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - run: pip install -r requirements.txt -c constraints.txt
+      - name: Validate dataset
+        run: python -m app.cli --validate-only
+      - name: Run gate (also compares with baselines/main.json when present)
+        run: |
+          ARGS="--no-cache --fail-on-gate --junit reports/junit.xml"
+          if [ -f baselines/main.json ]; then ARGS="$ARGS --baseline baselines/main.json"; fi
+          python -m app.cli $ARGS
+        env:
+          GIT_SHA: ${{ github.sha }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: llmops-eval-report
+          path: |
+            reports/eval_report.md
+            reports/eval_report.json
+            reports/junit.xml
+
+  live-gate:
+    name: Live agent gate
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.live) ||
+      (github.event_name == 'schedule' && vars.LIVE_EVAL_ENABLED == 'true')
+    runs-on: ubuntu-latest
+    environment: staging   # optional: add required reviewers / scoped secrets
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - run: pip install -r requirements.txt -c constraints.txt
+      - name: Evaluate live agent
+        run: python -m app.cli --target-mode live --fail-on-gate --junit reports/junit.xml
+        env:
+          GIT_SHA: ${{ github.sha }}
+          TARGET_QA_ENDPOINT_URL: ${{ secrets.TARGET_QA_ENDPOINT_URL }}
+          TARGET_WORKFLOW_ENDPOINT_URL: ${{ secrets.TARGET_WORKFLOW_ENDPOINT_URL }}
+          TARGET_BEARER_TOKEN: ${{ secrets.TARGET_BEARER_TOKEN }}
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          JUDGE_API_KEY: ${{ secrets.JUDGE_API_KEY }}
+          USE_LLM_JUDGE: ${{ vars.USE_LLM_JUDGE || 'false' }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: llmops-live-eval-report
+          path: |
+            reports/eval_report.md
+            reports/eval_report.json
+            reports/junit.xml

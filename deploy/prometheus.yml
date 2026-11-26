@@ -1,0 +1,9 @@
+# Minimal Prometheus config for `docker compose --profile monitoring up`.
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: llmops-harness
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["harness:7860"]

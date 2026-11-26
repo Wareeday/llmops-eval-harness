@@ -1,0 +1,38 @@
+# One-click Blueprint for Render.com (free plan works; see docs/DEPLOYMENT.md).
+services:
+  - type: web
+    name: llmops-agent-eval-harness
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt -c constraints.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --no-access-log --proxy-headers
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.3
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_FORMAT
+        value: json
+      - key: API_KEY            # protects /api/v1/*; Render generates a random value
+        generateValue: true
+      - key: REDIS_URL
+        sync: false
+      - key: LANGFUSE_PUBLIC_KEY
+        sync: false
+      - key: LANGFUSE_SECRET_KEY
+        sync: false
+      - key: TARGET_QA_ENDPOINT_URL
+        sync: false
+      - key: TARGET_WORKFLOW_ENDPOINT_URL
+        sync: false
+      - key: TARGET_PROTOCOL
+        value: http_contract
+      - key: TARGET_MODEL
+        sync: false
+      - key: TARGET_BEARER_TOKEN
+        sync: false
+      - key: JUDGE_API_KEY
+        sync: false
+      - key: ALERT_WEBHOOK_URL
+        sync: false

@@ -1,0 +1,81 @@
+# Quick start:      docker compose up --build
+# + demo agents:    docker compose --profile demo up --build
+# + Prometheus:     docker compose --profile monitoring up --build
+name: llmops-harness
+
+services:
+  harness:
+    build:
+      context: .
+      args:
+        GIT_SHA: ${GIT_SHA:-dev}
+    image: llmops-agent-eval-harness:local
+    ports:
+      - "7860:7860"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+    volumes:
+      - harness-data:/app/data_store
+      - harness-reports:/app/reports
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+  redis:
+    image: redis:7-alpine
+    # No published port: Redis is only reachable from other services on this network.
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+  # --- profile: demo - a good and a deliberately vulnerable agent to evaluate ------
+  agent-good:
+    profiles: [demo]
+    image: llmops-agent-eval-harness:local
+    depends_on: [harness]
+    command: ["uvicorn", "examples.reference_agent:app", "--host", "0.0.0.0", "--port", "9000"]
+    environment:
+      AGENT_MODE: good
+    read_only: true
+
+  agent-leaky:
+    profiles: [demo]
+    image: llmops-agent-eval-harness:local
+    depends_on: [harness]
+    command: ["uvicorn", "examples.reference_agent:app", "--host", "0.0.0.0", "--port", "9000"]
+    environment:
+      AGENT_MODE: leaky
+    read_only: true
+
+  # --- profile: monitoring ------------------------------------------------------------
+  prometheus:
+    profiles: [monitoring]
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on: [harness]
+
+volumes:
+  harness-data:
+  harness-reports:
