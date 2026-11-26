@@ -42,7 +42,7 @@ jobs:
           python -m app.cli $ARGS
         env:
           GIT_SHA: ${{ github.sha }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: llmops-eval-report
@@ -77,7 +77,7 @@ jobs:
           LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
           JUDGE_API_KEY: ${{ secrets.JUDGE_API_KEY }}
           USE_LLM_JUDGE: ${{ vars.USE_LLM_JUDGE || 'false' }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: llmops-live-eval-report
