@@ -51,10 +51,10 @@ dev = [
 ]
 
 [project.urls]
-Documentation = "https://github.com/wardamasood/llmops-agent-eval-harness/tree/main/docs"
-Source = "https://github.com/wardamasood/llmops-agent-eval-harness"
-Issues = "https://github.com/wardamasood/llmops-agent-eval-harness/issues"
-Changelog = "https://github.com/wardamasood/llmops-agent-eval-harness/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/Wareeday/llmops-eval-harness/tree/main/docs"
+Source = "https://github.com/Wareeday/llmops-eval-harness"
+Issues = "https://github.com/Wareeday/llmops-eval-harness/issues"
+Changelog = "https://github.com/Wareeday/llmops-eval-harness/blob/main/CHANGELOG.md"
 
 [project.scripts]
 llmops-eval = "app.cli:main"

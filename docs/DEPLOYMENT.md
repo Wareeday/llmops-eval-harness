@@ -73,14 +73,14 @@ Make it a required check: *Settings -> Branches -> Branch protection -> Require 
 To gate **your agent's** pull requests, call the harness from your agent's repo:
 ```yaml
 - uses: actions/checkout@v4
-  with: { repository: wardamasood/llmops-agent-eval-harness, path: harness }
+  with: { repository: Wareeday/llmops-eval-harness, path: harness }
 - run: pip install -r harness/requirements.txt -c harness/constraints.txt
 - run: python -m app.cli --target-mode live --fail-on-gate --junit report.xml
   working-directory: harness
   env:
     TARGET_QA_ENDPOINT_URL: https://pr-${{ github.event.number }}.staging.example.com/qa
 ```
-Releases: push a tag `vX.Y.Z` -> `release.yml` builds and pushes `ghcr.io/wardamasood/llmops-agent-eval-harness:X.Y.Z` and creates a GitHub Release.
+Releases: push a tag `vX.Y.Z` -> `release.yml` builds and pushes `ghcr.io/Wareeday/llmops-eval-harness:X.Y.Z` and creates a GitHub Release.
 
 ### Keeping a regression baseline
 ```bash
@@ -105,7 +105,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 1000, fsGroup: 1000 }
       containers:
         - name: harness
-          image: ghcr.io/wardamasood/llmops-agent-eval-harness:2.1.0
+          image: ghcr.io/Wareeday/llmops-eval-harness:2.1.0
           ports: [{ containerPort: 7860 }]
           envFrom: [{ secretRef: { name: llmops-harness-secrets } }]   # API_KEY, REDIS_URL, TARGET_*, LANGFUSE_*
           env:

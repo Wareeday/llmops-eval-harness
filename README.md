@@ -4,8 +4,8 @@
 
 **Evaluate, red-team, cache, alert, and observe any AI agent — in Arabic and English — with deterministic CI/CD quality gates.**
 
-[![CI](https://github.com/wardamasood/llmops-agent-eval-harness/actions/workflows/ci.yml/badge.svg)](https://github.com/wardamasood/llmops-agent-eval-harness/actions/workflows/ci.yml)
-[![Quality Gate](https://github.com/wardamasood/llmops-agent-eval-harness/actions/workflows/llmops-eval-ci.yml/badge.svg)](https://github.com/wardamasood/llmops-agent-eval-harness/actions/workflows/llmops-eval-ci.yml)
+[![CI](https://github.com/Wareeday/llmops-eval-harness/actions/workflows/ci.yml/badge.svg)](https://github.com/Wareeday/llmops-eval-harness/actions/workflows/ci.yml)
+[![Quality Gate](https://github.com/Wareeday/llmops-eval-harness/actions/workflows/llmops-eval-ci.yml/badge.svg)](https://github.com/Wareeday/llmops-eval-harness/actions/workflows/llmops-eval-ci.yml)
 ![Version](https://img.shields.io/badge/version-2.1.0-emerald)
 ![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
 ![Tests](https://img.shields.io/badge/tests-168%20passing-brightgreen)
@@ -89,7 +89,7 @@ It answers the four operational questions every engineering team must verify bef
 ### Option A — Local Python (2 minutes)
 
 ```bash
-git clone https://github.com/wardamasood/llmops-agent-eval-harness.git && cd llmops-agent-eval-harness
+git clone https://github.com/Wareeday/llmops-eval-harness.git && cd llmops-eval-harness
 python -m venv .venv && source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt -c constraints.txt
 

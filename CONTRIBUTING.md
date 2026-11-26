@@ -5,7 +5,7 @@ Thanks for helping improve the harness! This guide gets you from clone to merged
 ## 1. Set up (about 2 minutes)
 
 ```bash
-git clone https://github.com/wardamasood/llmops-agent-eval-harness.git && cd llmops-agent-eval-harness
+git clone https://github.com/Wareeday/llmops-eval-harness.git && cd llmops-eval-harness
 python -m venv .venv && source .venv/bin/activate        # Windows: .venv\Scripts\activate
 make install                                              # runtime + dev deps + pre-commit hooks
 make check                                                # lint + types + tests (>= 90% coverage)
